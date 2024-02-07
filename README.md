@@ -9,6 +9,7 @@ MockAI is a mock server for OpenAI's API. It allows you to simulate API response
   - `/v1/completions`
   - `/v1/chat/completions`
   - `/v1/images/generations`
+  - `/v1/models`
 
 - Allows you to specify the type of mock response: echo, random, or fixed.
 - Supports both single responses and streaming responses.
