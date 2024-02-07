@@ -81,13 +81,11 @@ router.post("/v1/chat/completions", async (req, res) => {
   let content;
   switch (mockType) {
     case "echo":
-      // content = messages[messages.length - 1].content;
       const query = messages[messages.length - 1].content;
       let answer = await queryCollection("jose_content", query);
       let url = answer.metadatas[0][0]["url"];
       content = answer.documents[0][0] + "\n" + url;
       console.log(content);
-      // console.log(content);
       break;
     case "random":
       content =
