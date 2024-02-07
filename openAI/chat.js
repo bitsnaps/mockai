@@ -4,6 +4,38 @@ const { tokenize } = require("../utils/tokenize");
 
 const router = express.Router();
 
+router.get("/v1/models", (req, res) => {
+  console.log("GET /v1/models");
+
+  const response = {
+    data: [
+      {
+        id: "LLMentor/spectrum-128k",
+        object: "model",
+        created: 1619110515,
+        model_details: {
+          id: "text-davinci-003",
+          name: "Davinci",
+          type: "text",
+          description: "Davinci is a general purpose AI model created by OpenAI. It is the successor to GPT-3.",
+          created: 1619110515,
+          max_tokens: 4096,
+          endpoint: "https://api.openai.com",
+          owner: "openai",
+          permissions: [
+            "read",
+            "write"
+          ]
+        }
+      }
+      ]
+    
+  };
+
+  res.json(response);
+});
+
+
 router.post("/v1/chat/completions", (req, res) => {
   const defaultMockType = process.env.MOCK_TYPE || "random";
   const {
