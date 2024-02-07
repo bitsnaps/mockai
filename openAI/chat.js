@@ -1,8 +1,30 @@
 const express = require("express");
 const { getRandomContents } = require("../utils/randomContents");
 const { tokenize } = require("../utils/tokenize");
-
+const { ChromaClient, OpenAIEmbeddingFunction } = require("chromadb");
 const router = express.Router();
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+if (!OPENAI_API_KEY) {
+  throw new Error("OPENAI_API_KEY environment variable not set");
+}
+
+const chroma_url = "http://localhost:8000"; // Or use process.env.CHROMA_SERVER_URL if set
+const client = new ChromaClient({ host: chroma_url });
+
+// Initialize the embedding function
+const openai_ef = new OpenAIEmbeddingFunction({
+  openai_api_key: OPENAI_API_KEY,
+});
+
+async function queryCollection(collectionName, query) {
+  const collection = await client.getCollection({
+    name: collectionName,
+    embeddingFunction: openai_ef,
+  });
+  const result = await collection.query({ queryTexts: [query], nResults: 2 });
+  return result;
+}
 
 router.get("/v1/models", (req, res) => {
   console.log("GET /v1/models");
@@ -17,26 +39,22 @@ router.get("/v1/models", (req, res) => {
           id: "text-davinci-003",
           name: "Davinci",
           type: "text",
-          description: "Davinci is a general purpose AI model created by OpenAI. It is the successor to GPT-3.",
+          description:
+            "Davinci is a general purpose AI model created by OpenAI. It is the successor to GPT-3.",
           created: 1619110515,
           max_tokens: 4096,
           endpoint: "https://api.openai.com",
           owner: "openai",
-          permissions: [
-            "read",
-            "write"
-          ]
-        }
-      }
-      ]
-    
+          permissions: ["read", "write"],
+        },
+      },
+    ],
   };
 
   res.json(response);
 });
 
-
-router.post("/v1/chat/completions", (req, res) => {
+router.post("/v1/chat/completions", async (req, res) => {
   const defaultMockType = process.env.MOCK_TYPE || "random";
   const {
     messages,
@@ -63,7 +81,13 @@ router.post("/v1/chat/completions", (req, res) => {
   let content;
   switch (mockType) {
     case "echo":
-      content = messages[messages.length - 1].content;
+      // content = messages[messages.length - 1].content;
+      const query = messages[messages.length - 1].content;
+      let answer = await queryCollection("jose_content", query);
+      let url = answer.metadatas[0][0]["url"];
+      content = answer.documents[0][0] + "\n" + url;
+      console.log(content);
+      // console.log(content);
       break;
     case "random":
       content =
