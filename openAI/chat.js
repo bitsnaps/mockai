@@ -12,9 +12,11 @@ if (!OPENAI_API_KEY) {
 const chroma_url = "http://localhost:8000"; // Or use process.env.CHROMA_SERVER_URL if set
 const client = new ChromaClient({ host: chroma_url });
 
+model = 'text-embedding-3-small';
+
 // Initialize the embedding function
 const openai_ef = new OpenAIEmbeddingFunction({
-  openai_api_key: OPENAI_API_KEY,
+  openai_api_key: OPENAI_API_KEY, openai_model: model 
 });
 
 async function queryCollection(collectionName, query) {
@@ -82,7 +84,9 @@ router.post("/v1/chat/completions", async (req, res) => {
   switch (mockType) {
     case "echo":
       const query = messages[messages.length - 1].content;
+      console.log(query);
       let answer = await queryCollection("jose_content", query);
+      console.log(answer)
       let url = answer.metadatas[0][0]["url"];
       content = answer.documents[0][0] + "\n" + url;
       console.log(content);
