@@ -8,6 +8,7 @@ const imgRoutes = require("./openAI/image");
 const embeddingRoutes = require("./openAI/embeddings");
 const { load: loadRandomContents } = require("./utils/randomContents");
 
+
 const start = async () => {
   await loadRandomContents();
 
@@ -27,7 +28,7 @@ const start = async () => {
   });
 
   app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
+    console.log(`Server is running at http://mockai:${port}`);
   });
 };
 

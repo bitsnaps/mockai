@@ -9,8 +9,11 @@ if (!OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY environment variable not set");
 }
 
-const chroma_url = "http://localhost:8000"; // Or use process.env.CHROMA_SERVER_URL if set
-const client = new ChromaClient({ host: chroma_url });
+const CHROMADB_HOST = process.env.CHROMADB_HOST;
+
+const chroma_url = `http://${CHROMADB_HOST}:8000`; // Or use process.env.CHROMA_SERVER_URL if set
+
+const client = new ChromaClient({ path: chroma_url });
 
 model = 'text-embedding-3-small';
 
