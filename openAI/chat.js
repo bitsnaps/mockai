@@ -3,23 +3,28 @@ const { getRandomContents } = require("../utils/randomContents");
 const { tokenize } = require("../utils/tokenize");
 const { ChromaClient, OpenAIEmbeddingFunction } = require("chromadb");
 const router = express.Router();
+const sqlite3 = require("sqlite3").verbose();
+
+const model_db_path = process.env.MODEL_DB_PATH || "models.db";
+const db = new sqlite3.Database(model_db_path);
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY environment variable not set");
 }
 
-const CHROMADB_HOST = process.env.CHROMADB_HOST;
+const CHROMADB_HOST = process.env.CHROMADB_HOST || "localhost";
 
 const chroma_url = `http://${CHROMADB_HOST}:8000`; // Or use process.env.CHROMA_SERVER_URL if set
 
 const client = new ChromaClient({ path: chroma_url });
 
-model = 'text-embedding-3-small';
+model = "text-embedding-3-small";
 
 // Initialize the embedding function
 const openai_ef = new OpenAIEmbeddingFunction({
-  openai_api_key: OPENAI_API_KEY, openai_model: model 
+  openai_api_key: OPENAI_API_KEY,
+  openai_model: model,
 });
 
 async function queryCollection(collectionName, query) {
@@ -31,32 +36,99 @@ async function queryCollection(collectionName, query) {
   return result;
 }
 
+router.get("/api/collections", async (req, res) => {
+  try {
+    // List all collections
+    const collections = await client.listCollections();
+    res.json(collections);
+  } catch (error) {
+    console.error("Failed to fetch collections:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+router.delete('/v1/models/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = 'DELETE FROM models WHERE id = ?';
+  
+  db.run(sql, [id], (err) => {
+      if (err) {
+          console.error(err.message);
+          res.status(500).send('Failed to delete the model');
+          return;
+      }
+      res.json({ success: true, message: 'Model deleted successfully' });
+  });
+});
+
+
+router.post("/v1/models", (req, res) => {
+  const { vectorDB, collection, embeddingFunction, description } = req.body;
+  const modelDetailId = `${vectorDB}-${collection}-${embeddingFunction}`;
+  const modelId = `LLMentor/${modelDetailId}`;
+  const name = modelDetailId; // Since model detail ID and name are the same
+  const type = "text"; // Static value
+  const maxTokens = 4096; // Static value
+  const created = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
+
+  const sql = `INSERT INTO models (id, object, created, model_id, name, type, description, max_tokens, endpoint, owner, permissions) VALUES (?, 'model', ?, ?, ?, ?, ?, ?, 'http://mockai:5002', 'llmentor', 'read,write')`;
+
+  db.run(
+    sql,
+    [modelId, created, modelDetailId, name, type, description, maxTokens],
+    function (err) {
+      if (err) {
+        if (err.message.includes("UNIQUE constraint failed: models.id")) {
+          // If the error is due to a unique constraint failure, send a custom message
+          res
+            .status(409)
+            .send(
+              "A model with the same ID already exists. Please choose different values."
+            );
+        } else {
+          // Handle other errors
+          console.error(err.message);
+          res.status(500).send("Internal Server Error");
+        }
+        return;
+      }
+      res.send("Model added successfully");
+    }
+  );
+});
+
 router.get("/v1/models", (req, res) => {
   console.log("GET /v1/models");
 
-  const response = {
-    data: [
-      {
-        id: "LLMentor/spectrum-128k",
-        object: "model",
-        created: 1619110515,
-        model_details: {
-          id: "text-davinci-003",
-          name: "Davinci",
-          type: "text",
-          description:
-            "Davinci is a general purpose AI model created by OpenAI. It is the successor to GPT-3.",
-          created: 1619110515,
-          max_tokens: 4096,
-          endpoint: "https://api.openai.com",
-          owner: "openai",
-          permissions: ["read", "write"],
-        },
-      },
-    ],
-  };
+  const sql = `SELECT * FROM models`;
 
-  res.json(response);
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error(err.message);
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    // Transform rows to fit the expected response format
+    const data = rows.map((row) => ({
+      id: row.id,
+      object: row.object,
+      created: row.created,
+      model_details: {
+        id: row.model_id,
+        name: row.name,
+        type: row.type,
+        description: row.description,
+        created: row.created,
+        max_tokens: row.max_tokens,
+        endpoint: row.endpoint,
+        owner: row.owner,
+        permissions: row.permissions.split(","), // Assuming permissions are stored as a comma-separated string
+      },
+    }));
+
+    res.json({ data });
+  });
 });
 
 router.post("/v1/chat/completions", async (req, res) => {
@@ -89,7 +161,7 @@ router.post("/v1/chat/completions", async (req, res) => {
       const query = messages[messages.length - 1].content;
       console.log(query);
       let answer = await queryCollection("jose_content", query);
-      console.log(answer)
+      console.log(answer);
       let url = answer.metadatas[0][0]["url"];
       content = answer.documents[0][0] + "\n" + url;
       console.log(content);

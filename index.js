@@ -8,6 +8,11 @@ const imgRoutes = require("./openAI/image");
 const embeddingRoutes = require("./openAI/embeddings");
 const { load: loadRandomContents } = require("./utils/randomContents");
 
+// middleware
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.static('public')); // Serve static files like HTML, CSS from the 'public' folder
+
 
 const start = async () => {
   await loadRandomContents();
